@@ -18,7 +18,7 @@
 #define BUTTON_PIN  (_BV(PB4))
 #define BUTTON_PORT PORTB
 #define BUTTON_DDR  DDRB
-#define BUTTON_PRESSED() (PINB & BUTTON_PIN)
+#define BUTTON_PRESSED() (!(PINB & BUTTON_PIN))
 
 #define LED_PIN     (_BV(PB1))
 #define LED_PORT    PORTB
@@ -66,7 +66,7 @@ int main (void)
 {
 	wdt_enable(WDTO_2S);
 
-	BUTTON_PORT &= ~BUTTON_PIN;
+	BUTTON_PORT |= BUTTON_PIN;
 	BUTTON_DDR &= ~BUTTON_PIN;
 
 	LED_PORT &= ~LED_PIN;
