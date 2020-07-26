@@ -14,6 +14,8 @@
 #include <util/delay.h>
 #include "filter.h"
 
+#define HYSTERESIS_VALUE 20
+
 //Собственно кнопка
 #define BUTTON_PIN  (_BV(PB4))
 #define BUTTON_PORT PORTB
@@ -114,9 +116,10 @@ int main (void)
 #endif
 		filt1 = filter(filt1,ADCW);
 
-		if (filt1>=compare_with) {
+		if (filt1>=compare_with+HYSTERESIS_VALUE) {
 			LED_PORT |= LED_PIN;
-		} else {
+		} else
+		if (filt1<compare_with-HYSTERESIS_VALUE) {
 			LED_PORT &= ~LED_PIN;
 		}
 
