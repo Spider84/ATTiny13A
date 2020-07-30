@@ -12,6 +12,7 @@
 #include <avr/wdt.h>
 #include <avr/eeprom.h>
 #include <util/delay.h>
+#include <util/atomic.h>
 #include "filter.h"
 
 #define HYSTERESIS_VALUE 20
@@ -29,6 +30,9 @@
 #define DEFAULT_VALUE_1 500
 #define DEFAULT_VALUE_2 500
 
+//Пауза в ms перед отключением
+#define SWITCH_OFF_TIMEOUT 3000
+
 typedef struct {
 	uint16_t value1;
 	uint16_t value2;
@@ -37,6 +41,8 @@ typedef struct {
 
 static ee_config EEMEM addr_config;
 static ee_config config;
+
+static volatile uint16_t timeout = 0;
 
 static uint8_t calcCRC(ee_config *config)
 {
@@ -85,6 +91,14 @@ int main (void)
 	ADCSRA |= _BV(ADIE);
 #endif
 
+	//Таймер для системного счётчика 1 ms
+	TCCR0B = 0;
+	TCNT0 = 0xFF - 150;
+	TCCR0A = 0;
+	TIFR0 = _BV(TOV0);
+	TIMSK0 = _BV(TOIE0);
+	TCCR0B = _BV(CS01) | _BV(CS00);
+
 	readConfig();
 
 	static uint16_t filt1 = 0;
@@ -116,11 +130,36 @@ int main (void)
 #endif
 		filt1 = filter(filt1,ADCW);
 
-		if (filt1>=compare_with+HYSTERESIS_VALUE) {
-			LED_PORT |= LED_PIN;
-		} else
-		if (filt1<compare_with-HYSTERESIS_VALUE) {
-			LED_PORT &= ~LED_PIN;
+		static uint8_t state = 0;
+		switch (state) {
+			default:
+				state = 0;
+			case 0:
+				if (filt1>=compare_with+HYSTERESIS_VALUE) {
+					LED_PORT |= LED_PIN;
+				} else
+				if (filt1<compare_with-HYSTERESIS_VALUE) {
+					state = 1;
+
+					ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+						timeout = SWITCH_OFF_TIMEOUT;
+				}
+				break;
+			case 1:
+				if (filt1>=compare_with+HYSTERESIS_VALUE) {
+					state = 0;
+				} else {
+					uint16_t _timeout;
+
+					ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+						_timeout = timeout;
+
+					if (!_timeout) {
+						LED_PORT &= ~LED_PIN;
+						state = 0;
+					}
+				}
+				break;
 		}
 
 		static uint8_t button_state = 0;
@@ -133,6 +172,13 @@ int main (void)
 			button_state = 0;
 		}
 	}
+}
+
+//Выравнивание счётчика на 1ms
+ISR(TIM0_OVF_vect)
+{
+	TCNT0 = 0xFF - 150;
+	if (timeout) --timeout;
 }
 
 #ifndef NO_NOISE_REDUCTION
