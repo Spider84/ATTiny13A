@@ -11,7 +11,6 @@
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 #include <avr/eeprom.h>
-#include <util/delay.h>
 #include <util/atomic.h>
 #include "filter.h"
 
@@ -136,7 +135,7 @@ int main (void)
 				state = 0;
 			case 0:
 				if (filt1>=compare_with+HYSTERESIS_VALUE) {
-					LED_PORT |= LED_PIN;
+					//LED_PORT |= LED_PIN;
 				} else
 				if (filt1<compare_with-HYSTERESIS_VALUE) {
 					state = 1;
@@ -155,7 +154,7 @@ int main (void)
 						_timeout = timeout;
 
 					if (!_timeout) {
-						LED_PORT &= ~LED_PIN;
+						//LED_PORT &= ~LED_PIN;
 						state = 0;
 					}
 				}
@@ -178,6 +177,7 @@ int main (void)
 ISR(TIM0_OVF_vect)
 {
 	TCNT0 = 0xFF - 150;
+	LED_PORT ^= LED_PIN;
 	if (timeout) --timeout;
 }
 
